@@ -1,13 +1,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#define BUF_SIZE 32
-
 int main(int argc, char **argv) {
-    char buf[BUF_SIZE];
+    char buf[32];
 
     if (argc < 2) {
-        printf("Usage: vuln <input>\n");
+        printf("Expected argument.\n");
         return 1;
     }
 
