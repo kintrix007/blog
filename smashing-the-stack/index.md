@@ -1,7 +1,7 @@
-# Buffer overflow exploit
+# Smashing the Stack
 
 <!--toc:start-->
-- [Buffer overflow exploit](#buffer-overflow-exploit)
+- [Smashing the Stack](#smashing-the-stack)
   - [Hardware](#hardware)
   - [Code](#code)
   - [Steps](#steps)
