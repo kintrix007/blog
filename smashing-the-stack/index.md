@@ -205,23 +205,23 @@ sp             0xbefff4d8          0xbefff4d8
 0xbefff548:     0x00000000      0x00000000      0x00000000       0x00000000
 ```
 
-That seems like a very lucky chunk of uninitialized
-memory. Mostly zeros. But this could be all random
-characters too.
+That seems like a bunch of uninitialized memory. That is because it is. Mostly
+zeros, which I do not know the exact reason for. Probably luck. The point is,
+most of these could be basically any bytes.
 
-At the very top of the stack we have one word that is
-suspiciously non-zero. And that is for a good reason. It
-stores the address to `argv`. We can see it at the
-beginning of `main`, where it is stored there:
+At the very top of the stack we have one word that is actually interesting to
+us: `0xbefff664`. Why is that, you might ask. It is interesting, of course,
+since it stores the address to `argv`. We can see at the beginning of
+`main` that it actually gets stored there:
 
 ```gdb
    0x000104a0 <+16>:    str     r1, [r11, #-44]        ; 0xffffffd4
 ```
 
-Here, `r1` refers to the *2nd* arguments of `main`. The
-first argument is of course `r0`. Actually, `r0` was
-also put on the stack. It is the very next word,
-`0x00000002`. This is `argc`.
+Here, `r1` refers to the *2nd* arguments of `main` and `str` is the Store
+Register instruction. The first argument is of course `r0` (we love 0-indexing
+things). Actually, `r0` was also put on the stack. It is the very next word,
+`0x00000002`. This is the value of `argc`.
 
 And there were indeed two arguments passed (the program
 itself and the argument we passed it). These are the
@@ -330,7 +330,7 @@ from our buffer. It looks like the distance is 9 words,
 or equivalently 36 bytes.
 
 So here is how we can exploit this program: Make our
-input have 260 bytes of whatever followed by the address
+input have 36 bytes of whatever followed by the address
 of `unused_function`. Then executing `strcpy` will
 overwrite the stored `pc`, so after executing the
 return, pc will point to the start of `unused_function`,
@@ -339,7 +339,7 @@ so it will execute its contents.
 Well, we already the have the address of
 `unused_function`. It is `0x00010494`.
 
-Alright, let's pad it with 260 bytes of garbage. I used
+Alright, let's pad it with 36 bytes of garbage. I used
 GHCi to not have to manually type that out, but choose
 whatever option you like the best.
 
@@ -355,9 +355,9 @@ whatever language we choose. We will end up with something along the lines of
 I am going to use some shell magic to pass it as an argument. `echo` supports
 hex escape sequences, so that will work for us perfectly. Let's see:
 
-```sh $ echo -e
-'123456781234567812345678123456781234\x94\x04\x01\x00'
-123456781234567812345678123456781234�
+```sh
+$ echo -e '123456781234567812345678123456781234\x94\x04\x01\x00'
+123456781234567812345678123456781234ö��
 ```
 
 Something definitely *has* been resolved. Let's check that it is
@@ -411,7 +411,7 @@ is essential. Remember? It was little endian. This is what would
 have happened if I didn't reverse it:
 
 ```sh
-$ ./vuln $(echo -e '12345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234567812345678123456781234\x00\x01\x05\x04')
+$ ./vuln $(echo -e '123456781234567812345678123456781234\x00\x01\x05\x04')
 -bash: warning: command substitution: ignored null byte in input
 Segmentation fault
 ```
