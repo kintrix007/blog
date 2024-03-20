@@ -1,5 +1,18 @@
 # Contributing to Nixpkgs
 
+<!--toc:start-->
+- [Contributing to Nixpkgs](#contributing-to-nixpkgs)
+  - [What exactly is Nix?](#what-exactly-is-nix)
+  - [Prerequisites](#prerequisites)
+  - [Building a package with Nix](#building-a-package-with-nix)
+  - [Building the VLC BitTorrent Plugin](#building-the-vlc-bittorrent-plugin)
+    - [First Attempt](#first-attempt)
+    - [Second Attempt -- Specify Build Steps](#second-attempt-specify-build-steps)
+    - [Third Attempt -- Explicitly Declare the Dependencies](#third-attempt-explicitly-declare-the-dependencies)
+      - [Inspect What Went Wrong](#inspect-what-went-wrong)
+  - [Manually Test the Package](#manually-test-the-package)
+<!--toc:end-->
+
 I have been a big fan of [Nix](https://nixos.org) for a few years now, however
 I never ended up learning it properly. It has been (still is) something that I
 will repeatedly attempt to use for a job I know it is made for, but end up not
@@ -42,7 +55,7 @@ Oh, did I mention that Nix is also a build tool? Well, it is. Let's do a deep
 dive. Here is an example of using Nix to build [GNU
 Hello](https://www.gnu.org/software/hello/):
 
-[`hello.nix`](./hello.nix)
+[`hello.nix`](./hello.nix):
 
 ```nix
 { pkgs ? import <nixpkgs> { } }:
@@ -97,8 +110,8 @@ Running phase: configurePhase
 ```
 
 There are some interesting things here, other then the fact that it is a *lot*
-of lines. First, that this all happens under `/nix/store`. This is how Nix
-makes sure the builds stay isolated, so it can be as reproducible as possible.
+of lines. First, this all happens under `/nix/store`. This is how Nix makes
+sure the builds stay isolated, so it can be as reproducible as possible.
 
 The last line (which is the only one actually printed to `stdout`, the rest
 were on `stderr`) shows us where the binary has been built to. It is not in the
@@ -132,7 +145,7 @@ Hello, world!
 
 Seems to work just fine. It also has a `share/` directory since the packages
 are all self-contained under their store path. Instead of adding it under
-`/usr/local/share`, it all keeps it under `/nix/store/<hash>-package/share`.
+`/usr/local/share`, Nix keep it under `/nix/store/<hash>-package/share`.
 Upon install this path gets added to `XDG_DATA_DIRS` so that packages work as
 intended. Similarly, the `bin/` directory gets added to `PATH` to be able to
 run the binaries like any other. Pretty clever.
@@ -154,14 +167,21 @@ note: currently hard linking saves -0.00 MiB
 
 Unfortunately I do not know of a simpler way of deleting the build output of a
 single package. Alternatively, `rm hello && nix-collec-garbage` would have also
-worked, but it would removed all other packages <sub>that are not GC roots
-themselves or dependencies of GC roots</sub>.
+worked, but it would removed all other packages. <sub>*that are not GC roots
+themselves or dependencies of GC roots*</sub>
 
-## Building the VLC BitTorrent plugin
+## Building the VLC BitTorrent Plugin
 
 Enough exploring, let's package `vlc-bittorent` with Nix. Oddly enough, it is
 not part of Nixpkgs, even though it can be found under the same name in the
-Debian/Ubuntu and the Fedora repos. So let's add it:
+Debian/Ubuntu and the Fedora repos. So let's add it.
+
+### First Attempt
+
+We create a file named, let's say,
+[`vlc-bittorrent.nix`](./vlc-bittorrent-1.nix). Model it after the GNU Hello
+package with small changes. We use `fetchGit` to download a given revision
+(commit) from a git repo instead.
 
 ```nix
 { pkgs ? import <nixpkgs> { } }:
@@ -207,6 +227,8 @@ how Nix builds packages we can decipher what went wrong. Nothing actually got
 written to the build directory (`out`). In other words, it did not build
 anything. Very sensible that that results in an error.
 
+### Second Attempt -- Specify Build Steps
+
 It seems that here we will actually need to specify the build steps. Shouldn't
 be too bad. First, let's check
 [upstream](https://github.com/johang/vlc-bittorrent?tab=readme-ov-file#building-from-git-on-a-recent-debianubuntu)
@@ -223,8 +245,9 @@ make
 make install
 ```
 
-Let's copy over the actual build and install commands. We already have cloning
-the repo figured out declaratively with `fetchGit`.
+Let's copy over the actual build and install commands into [the
+derivation](./vlc-bittorrent-2.nix). We already have cloning the repo figured
+out declaratively with `fetchGit`.
 
 ```nix
 { pkgs ? import <nixpkgs> { } }:
@@ -236,7 +259,6 @@ pkgs.stdenv.mkDerivation {
   src = fetchGit {
     url = "https://github.com/johang/vlc-bittorrent";
     rev = "6810d479e6c1f64046d3b30efe78774b49d1c95b";
-    ref = "master";
   };
 
   buildPhase = ''
@@ -288,10 +310,13 @@ error: builder for '/nix/store/1i6fj0dmp4fapnigxbkfkws4pdk286nn-vlc-bittorrent-2
        For full logs, run 'nix log /nix/store/1i6fj0dmp4fapnigxbkfkws4pdk286nn-vlc-bittorrent-2.15.0.drv'.
 ```
 
-Looks better. Now it actually tries to build it, but does not have the
-`autoreconf` tool on the PATH. We need to *actually* declare the dependencies.
-This will involve a bit of hand-translating package names from Debian to Nix,
-but it is not too bad.
+Looks a bit better. Now it actually tries to execute the relevant build steps.
+However the build tooling, such as `autoreconf`, is not present.
+
+### Third Attempt -- Explicitly Declare the Dependencies
+
+We need to *actually* declare the dependencies. This will involve a bit of
+hand-translating package names from Debian to Nix, but it is not too bad.
 
 ```txt
 autoconf                   ==>  autoconf
@@ -304,7 +329,8 @@ libvlc-dev libvlccore-dev  ==>  libvlc
 make                       ==>  gnumake
 ```
 
-After listing these packages as build dependencies I have the following:
+After listing these packages as build dependencies I have the
+[following](./vlc-bittorrent-3.nix):
 
 ```nix
 { pkgs ? import <nixpkgs> { } }:
@@ -330,7 +356,6 @@ pkgs.stdenv.mkDerivation {
   src = fetchGit {
     url = "https://github.com/johang/vlc-bittorrent";
     rev = "6810d479e6c1f64046d3b30efe78774b49d1c95b";
-    ref = "master";
   };
 
   buildPhase = ''
@@ -352,7 +377,7 @@ packages listed as `buildInputs` are present **both** at build time, and they
 also get installed as dependecies of the package. When someone actually decides
 to install it.
 
-Technically, we could list ass dependencies in `buildInputs` and it would be
+Technically, we could list all dependencies in `buildInputs` and it would be
 fine, but it makes sense to separate them. You would not want users to have to
 install `automake` just to be able to use a torrent plugin.
 
@@ -425,10 +450,187 @@ error: builder for '/nix/store/ggyycrj3dl6kimwq4bw2y4q2n7xy0myf-vlc-bittorrent-2
        For full logs, run 'nix log /nix/store/ggyycrj3dl6kimwq4bw2y4q2n7xy0myf-vlc-bittorrent-2.15.0.drv'.
 ```
 
-Syntax error near unexpected token? What? And in `./configure` of all places?
-Not a very helpful error. The full logs are identical to what has already been
-printed, to `nix log` is not helpful here.
+Oh no... Syntax error near unexpected token? And in `./configure` of all
+places? Not a very helpful error. The full logs `nix log` would give us are
+identical to what has already been printed, so it is not particularly helpful
+here.
 
-TODO: finish
+#### Inspect What Went Wrong
 
-Additionally, `boost`, `pkg-config` and `openssl` are also dependencies of it.
+We can attempt inspecting the build steps ourselves, maybe that will help? Nix
+also provides a tool called `nix-shell`, which allows us to enter the build
+environment and have access to the build steps.
+
+```sh
+$ nix-shell vlc-bittorent.nix 
+(nix-shell) $ cd `mktemp -d`
+(nix-shell) $ pwd
+/run/user/1000/tmp.974kkEVXOl
+(nix-shell) $ unpackPhase 
+unpacking source archive /nix/store/c9w5y8cl1pw4szy5s4i0k8pxxpw34fc1-source
+source root is source
+(nix-shell) $ cd source/
+(nix-shell) $ ls
+configure.ac  data  LICENSE  Makefile.am  README.md  scripts  src  test
+```
+
+Nice, now we are in the build environment and we have the source code. After
+entering a Nix shell, all the packages specified in `BuildInputs` and
+`nativeBuildInputs` are available on the PATH. So we can manually run
+`autoreconf`, for example.
+
+```sh
+(nix-shell) $ autoreconf -i
+aclocal: warning: couldn't open directory 'm4': No such file or directory
+libtoolize: putting auxiliary files in AC_CONFIG_AUX_DIR, 'build-aux'.
+libtoolize: copying file 'build-aux/ltmain.sh'
+libtoolize: putting macros in AC_CONFIG_MACRO_DIRS, 'm4'.
+libtoolize: copying file 'm4/libtool.m4'
+libtoolize: copying file 'm4/ltoptions.m4'
+libtoolize: copying file 'm4/ltsugar.m4'
+libtoolize: copying file 'm4/ltversion.m4'
+libtoolize: copying file 'm4/lt~obsolete.m4'
+libtoolize: Consider adding '-I m4' to ACLOCAL_AMFLAGS in Makefile.am.
+configure.ac:32: installing 'build-aux/compile'
+configure.ac:32: installing 'build-aux/config.guess'
+configure.ac:32: installing 'build-aux/config.sub'
+configure.ac:14: installing 'build-aux/install-sh'
+configure.ac:14: installing 'build-aux/missing'
+configure.ac:7: installing 'build-aux/tap-driver.sh'
+src/Makefile.am: installing 'build-aux/depcomp'
+```
+
+After running `./configure` we get the exact same error again.
+
+```sh
+$ ./configure 
+checking whether the C++ compiler works... yes
+checking for C++ compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C++... yes
+checking whether g++ accepts -g... yes
+checking for g++ option to enable C++11 features... none needed
+checking for gawk... gawk
+checking for a BSD-compatible install... /nix/store/rk067yylvhyb7a360n8k1ps4lb4xsbl3-coreutils-9.3/bin/install -c
+checking whether build environment is sane... yes
+checking for a race-free mkdir -p... /nix/store/rk067yylvhyb7a360n8k1ps4lb4xsbl3-coreutils-9.3/bin/mkdir -p
+checking whether make sets $(MAKE)... yes
+checking whether make supports the include directive... yes (GNU style)
+checking whether make supports nested variables... yes
+checking dependency style of g++... gcc3
+./configure: line 4320: syntax error near unexpected token `VLC_PLUGIN,'
+./configure: line 4320: `PKG_CHECK_MODULES(VLC_PLUGIN, vlc-plugin >= 3.0.0)'
+```
+
+I look at those lines very quick with `vim ./configure +4320`, and be greeted
+with `shellcheck`, a shell script linter, complaining about those lines too.
+`./configure` is simply a shell script, it starts with the usual shebang
+`#!/bin/sh`. Line 4319 and 4320 are interesting:
+
+```sh
+PKG_CHECK_MODULES(VLC_PLUGIN, vlc-plugin >= 3.0.0)
+# Diagnostics:
+# 1. Couldn't parse this function. Fix to allow more checks. [SC1073]
+# 2. Trying to declare parameters? Don't. Use () and refer to params as $1, $2.. [SC1065]
+PKG_CHECK_MODULES(LIBTORRENT, libtorrent-rasterbar >= 1.0.0)
+# Diagnostics:
+# 1. Expected a { to open the function definition. [SC1064]
+# 2.  Fix any mentioned problems and try again. [SC1072]
+```
+
+The comments are what `shellcheck` tells me. Interesting. That is definitely
+NOT the syntax for calling a shell function. It is probably not trying to
+*define* shell functions that take arguments, rather call something.
+
+At this point something clicks: Isn't this some `pkg-config` shenanigans? Let's
+try adding it to `nativeBuildInputs` and see if it solves it. First `exit` the
+previous Nix shell and then create a new one.
+
+```sh
+$ nix-shell vlc-bittorent.nix 
+(nix-shell) $ nix-shell -p pkg-config
+(nix-shell) $ cd `mktemp -d`
+(nix-shell) $ unpackPhase 
+unpacking source archive /nix/store/c9w5y8cl1pw4szy5s4i0k8pxxpw34fc1-source
+source root is source
+(nix-shell) $ nix-shell vlc-bittorent-3.nix 
+(nix-shell) $ cd `mktemp -d` && unpackPhase && cd source && autoreconf -i
+unpacking source archive /nix/store/c9w5y8cl1pw4szy5s4i0k8pxxpw34fc1-source
+source root is source
+[...]
+(nix-shell) $ ./configure 
+[...]
+(nix-shell) $ echo $?
+0
+```
+
+That solved it! Great. Let's try the build as a whole.
+
+```sh
+$ nix-build vlc-bittorent.nix 
+[...]
+In file included from /nix/store/rfiiq50w7mpkhsjsq28gzm7g3insy05p-libtorrent-rasterbar-2.0.9-dev/include/libtorrent/time.hpp:36,
+                 from /nix/store/rfiiq50w7mpkhsjsq28gzm7g3insy05p-libtorrent-rasterbar-2.0.9-dev/include/libtorrent/alert.hpp:67,
+                 from download.h:32,
+                 from metadata.cpp:27:
+/nix/store/rfiiq50w7mpkhsjsq28gzm7g3insy05p-libtorrent-rasterbar-2.0.9-dev/include/libtorrent/config.hpp:52:10: fatal error: boost/config.hpp: No such file or directory
+   52 | #include <boost/config.hpp>
+      |          ^~~~~~~~~~~~~~~~~~
+compilation terminated.
+make[2]: *** [Makefile:533: libaccess_bittorrent_plugin_la-metadata.lo] Error 1
+make[2]: Leaving directory '/build/source/src'
+make[1]: *** [Makefile:397: all] Error 2
+make[1]: Leaving directory '/build/source/src'
+make: *** [Makefile:404: all-recursive] Error 1
+error: builder for '/nix/store/m170j5qrkk31x7b5nfbwans0byj7zqsr-vlc-bittorrent-2.15.0.drv' failed with exit code 2;
+       last 10 log lines:
+       >                  from metadata.cpp:27:
+       > /nix/store/rfiiq50w7mpkhsjsq28gzm7g3insy05p-libtorrent-rasterbar-2.0.9-dev/include/libtorrent/config.hpp:52:10: fatal error: boost/config.hpp: No such file or directory
+       >    52 | #include <boost/config.hpp>
+       >       |          ^~~~~~~~~~~~~~~~~~
+       > compilation terminated.
+       > make[2]: *** [Makefile:533: libaccess_bittorrent_plugin_la-metadata.lo] Error 1
+       > make[2]: Leaving directory '/build/source/src'
+       > make[1]: *** [Makefile:397: all] Error 2
+       > make[1]: Leaving directory '/build/source/src'
+       > make: *** [Makefile:404: all-recursive] Error 1
+       For full logs, run 'nix log /nix/store/m170j5qrkk31x7b5nfbwans0byj7zqsr-vlc-bittorrent-2.15.0.drv'.
+```
+
+Okay, we need to add `boost` as well. That one is a runtime dependency too so
+add it to `buildInputs`. Try again.
+
+```sh
+$ nix-build vlc-bittorent.nix 
+[...]
+/nix/store/rfiiq50w7mpkhsjsq28gzm7g3insy05p-libtorrent-rasterbar-2.0.9-dev/include/libtorrent/ssl.hpp:56:10: fatal error: openssl/opensslv.h: No such file or directory
+   56 | #include <openssl/opensslv.h> // for OPENSSL_VERSION_NUMBER
+      |          ^~~~~~~~~~~~~~~~~~~~
+[...]
+```
+
+Okay, we also need to add `openssl`. Again, runtime. Once more.
+
+```sh
+$ nix-build vlc-bittorent.nix 
+[...]
+/nix/store/8nmq9hzpmsxh7sz2ai1z3c56q0w7ij69-vlc-bittorrent-2.15.0
+$ echo $?
+0
+```
+
+IT WORKED! [This](./vlc-bittorrent-4.nix) is the final derivation that works.
+
+## Manually Test the Package
+
+TODO: Test if it works.
+
+---
+
+TODO: Explain `autoreconfHook`.
+
+TODO: Actually go into how contributing this package worked.
+
+TODO: Link to the Nixpkgs PR.

@@ -11,11 +11,14 @@ pkgs.stdenv.mkDerivation {
     gcc
     libtool
     gnumake
+    pkg-config
   ];
 
   buildInputs = with pkgs; [
     libtorrent-rasterbar
     libvlc
+    boost
+    openssl
   ];
 
   src = fetchGit {
