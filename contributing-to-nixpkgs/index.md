@@ -11,6 +11,7 @@
     - [Third Attempt -- Explicitly Declare the Dependencies](#third-attempt-explicitly-declare-the-dependencies)
       - [Inspect What Went Wrong](#inspect-what-went-wrong)
   - [~~Watching a Movie~~ Testing the Package](#watching-a-movie-testing-the-package)
+  - [Contributing it to Nixpkgs](#contributing-it-to-nixpkgs)
 <!--toc:end-->
 
 I have been a big fan of [Nix](https://nixos.org) for a few years now, however
