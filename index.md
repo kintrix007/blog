@@ -1,3 +1,4 @@
 # Blog
 
-- [Smashing the stack](smashing-the-stack/)
+- [Smashing the Stack](./smashing-the-stack)
+<!-- - [Contributing to Nixpkgs](./contributing-to-nixpkgs) -->
