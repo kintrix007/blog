@@ -10,7 +10,7 @@
     - [Second Attempt -- Specify Build Steps](#second-attempt-specify-build-steps)
     - [Third Attempt -- Explicitly Declare the Dependencies](#third-attempt-explicitly-declare-the-dependencies)
       - [Inspect What Went Wrong](#inspect-what-went-wrong)
-  - [Manually Test the Package](#manually-test-the-package)
+  - [~~Watching a Movie~~ Testing the Package](#watching-a-movie-testing-the-package)
 <!--toc:end-->
 
 I have been a big fan of [Nix](https://nixos.org) for a few years now, however
@@ -32,7 +32,7 @@ Mac machine](https://nixos.org/download/#download-nix).
 Nixpkgs, the software repository the Nix package manager uses, is probably the
 biggest *binary* repository that exists with over 80,000 packages. Yes, I
 specifically said *binary* so that the AUR does not qualify. However, the
-humongous amount of packages pre-built is not the reason I love Nix. Althogh,
+humongous amount of packages pre-built is not the reason I love Nix. Although,
 it is very nice.
 
 It is a package manager which claims to have solved [dependency
@@ -374,7 +374,7 @@ We separate the dependencies needed for building the package
 (`nativeBuildInputs`) from the ones that are also needed to run it
 (`buildInputs`). I just used my intuition about which one should go where. The
 packages listed as `buildInputs` are present **both** at build time, and they
-also get installed as dependecies of the package. When someone actually decides
+also get installed as dependencies of the package. When someone actually decides
 to install it.
 
 Technically, we could list all dependencies in `buildInputs` and it would be
@@ -621,16 +621,45 @@ $ echo $?
 0
 ```
 
-IT WORKED! [This](./vlc-bittorrent-4.nix) is the final derivation that works.
+IT WORKED! I am very happy with this, but let's check if it actually works
+before we celebrate.
 
-## Manually Test the Package
+## ~~Watching a Movie~~ Testing the Package
 
-TODO: Test if it works.
+Previously, for GNU Hello, I added the `-o` flag to `nix-build` to specify
+what the output should be called. If omitted, it creates a symlink called
+`result`. Now to add this plugin to VLC all we need to do is put it on the
+`VLC_PLUGIN_PATH`. It works like `PATH`, but it is for VLC plugins, pretty
+self explanatory.
 
----
+```sh
+ VLC_PLUGIN_PATH="$PWD/result" vlc 'magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fbig-buck-bunny.torrent'
+```
 
-TODO: Explain `autoreconfHook`.
+That magnet link of course points to [Big Buck
+Bunny](https://en.wikipedia.org/wiki/Big_Buck_Bunny), a
+[banger](https://www.imdb.com/title/tt1254207/) open movie by the Blender
+Institute. Okay, maybe it is not the best short movie you will ever see in your
+life, but it has a lot of charm.
 
-TODO: Actually go into how contributing this package worked.
+After watching the whole thing, I can confirm: IT REALLY DOES WORK, WOOO! 🎉
 
-TODO: Link to the Nixpkgs PR.
+## Contributing it to Nixpkgs
+
+Now, all that is left to do is to [make a Pull
+Request](https://github.com/NixOS/nixpkgs/pull/296950) to the Nixpkgs repo.
+Okay, maybe a couple things need to be changed before that:
+
+- Adding the metadata (such as the homepage, the license etc)
+- Making sure it conforms to the Nixpkgs style guide
+- *Actually making the expression have a signature Nixpkgs can work with*
+- Yada-yada
+
+If you are interested in how that went, then you can check out the PR linked
+above. Spoilers: There were things that needed to be changed.
+
+For example, there is `autoreconfHook`. I would have needed to add that to the
+`nativeBuildInputs`, and Nix would have figured out all the build and install
+steps. *Yeah, that would have been simpler...*
+
+Oh well ¯\_(ツ)_/¯
