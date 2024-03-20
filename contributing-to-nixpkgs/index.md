@@ -2,9 +2,9 @@
 
 <!--toc:start-->
 - [Contributing to Nixpkgs](#contributing-to-nixpkgs)
-  - [What exactly is Nix?](#what-exactly-is-nix)
+  - [What Exactly is Nix?](#what-exactly-is-nix)
   - [Prerequisites](#prerequisites)
-  - [Building a package with Nix](#building-a-package-with-nix)
+  - [Building a Package with Nix](#building-a-package-with-nix)
   - [Building the VLC BitTorrent Plugin](#building-the-vlc-bittorrent-plugin)
     - [First Attempt](#first-attempt)
     - [Second Attempt -- Specify Build Steps](#second-attempt-specify-build-steps)
@@ -24,7 +24,7 @@ along the way when I managed to make it cooperate, but often times I just did
 not know how to describe what I wanted in terms of what Nix makes available to
 me.
 
-## What exactly is Nix?
+## What Exactly is Nix?
 
 Nix is a package manager. And a programming/markup language. And there is an
 entire OS (a Linux distro) built around it. But [you can use it on any Linux or
@@ -50,7 +50,7 @@ functional programming concepts and does use unusual syntax in places.
 
 Basic understanding of the Nix language is recommended.
 
-## Building a package with Nix
+## Building a Package with Nix
 
 Oh, did I mention that Nix is also a build tool? Well, it is. Let's do a deep
 dive. Here is an example of using Nix to build [GNU
