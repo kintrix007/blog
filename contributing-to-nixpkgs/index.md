@@ -663,4 +663,4 @@ For example, there is `autoreconfHook`. I would have needed to add that to the
 `nativeBuildInputs`, and Nix would have figured out all the build and install
 steps. *Yeah, that would have been simpler...*
 
-Oh well ¯\_(ツ)_/¯
+Oh well ¯\\\_(ツ)\_/¯
