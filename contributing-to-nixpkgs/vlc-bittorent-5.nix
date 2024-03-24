@@ -5,17 +5,16 @@ pkgs.stdenv.mkDerivation {
   version = "2.15.0";
 
   nativeBuildInputs = with pkgs; [
-    autoconf
     autoconf-archive
-    automake
-    gcc
-    libtool
-    gnumake
+    autoreconfHook
+    pkg-config
   ];
 
   buildInputs = with pkgs; [
     libtorrent-rasterbar
     libvlc
+    boost
+    openssl
   ];
 
   strictDeps = true;
@@ -24,14 +23,4 @@ pkgs.stdenv.mkDerivation {
     url = "https://github.com/johang/vlc-bittorrent";
     rev = "6810d479e6c1f64046d3b30efe78774b49d1c95b";
   };
-
-  buildPhase = ''
-    autoreconf -i
-    ./configure --prefix=$out
-    make
-  '';
-
-  installPhase = ''
-    make install
-  '';
 }

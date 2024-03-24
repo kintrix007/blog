@@ -354,6 +354,8 @@ pkgs.stdenv.mkDerivation {
     libvlc
   ];
 
+  strictDeps = true;
+
   src = fetchGit {
     url = "https://github.com/johang/vlc-bittorrent";
     rev = "6810d479e6c1f64046d3b30efe78774b49d1c95b";
@@ -375,16 +377,23 @@ We separate the dependencies needed for building the package
 (`nativeBuildInputs`) from the ones that are also needed to run it
 (`buildInputs`). I just used my intuition about which one should go where. The
 packages listed as `buildInputs` are present **both** at build time, and they
-also get installed as dependencies of the package. When someone actually decides
-to install it.
+also get installed as dependencies of the package.
 
-Technically, we could list all dependencies in `buildInputs` and it would be
-fine, but it makes sense to separate them. You would not want users to have to
-install `automake` just to be able to use a torrent plugin.
+It makes sense to separate the two. As the user, you wouldn't want to install
+`automake` and `libtool` just to get `vlc-bittorrent`. It does not need them
+to run, so it would be simply a waste of bandwidth to download those as well.
 
-*Note:* Technically, Nix does some pruning of runtime dependencies, so they
-would get treated like `nativeBuildInputs` either way, but that system is not
-perfect.
+We need to set `strictDeps` to `true` for Nix to actually consider compile
+time and runtime dependencies separately. Without it, `strictDeps` defaults to
+false, and then it just merges `nativeBuildInputs` into `buildInputs`,
+effectively nullifying our efforts.
+
+*Note:* Technically, even without `strictDeps = true` it would be fine. Nix
+looks at all dependencies listed in `buildInputs` and later tries to prune the
+ones that are not needed at runtime. Thus it automatically separates packages
+based on whether they are needed at runtime, and only installs those for the
+end user. But as you might expect, this is not infallible. It's better to
+specify ourselves both for human readability and for correctness.
 
 Okay, let's build it, hopefully that is enough.
 
@@ -634,7 +643,7 @@ what the output should be called. If omitted, it creates a symlink called
 self explanatory.
 
 ```sh
- VLC_PLUGIN_PATH="$PWD/result" vlc 'magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fbig-buck-bunny.torrent'
+VLC_PLUGIN_PATH="$PWD/result" vlc 'magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fbig-buck-bunny.torrent'
 ```
 
 That magnet link of course points to [Big Buck
@@ -642,6 +651,8 @@ Bunny](https://en.wikipedia.org/wiki/Big_Buck_Bunny), a
 [banger](https://www.imdb.com/title/tt1254207/) open movie by the Blender
 Institute. Okay, maybe it is not the best short movie you will ever see in your
 life, but it has a lot of charm.
+
+![VLC playing Big Buck Bunny over BitTorrent](./big-buck-bunny.png)
 
 After watching the whole thing, I can confirm: IT REALLY DOES WORK, WOOO! 🎉
 
@@ -662,5 +673,36 @@ above. Spoilers: There were things that needed to be changed.
 For example, there is `autoreconfHook`. I would have needed to add that to the
 `nativeBuildInputs`, and Nix would have figured out all the build and install
 steps. *Yeah, that would have been simpler...*
+
+[This](./vlc-bittorrent-5.nix) is what it could look like:
+
+```nix
+{ pkgs ? import <nixpkgs> { } }:
+
+pkgs.stdenv.mkDerivation {
+  pname = "vlc-bittorrent";
+  version = "2.15.0";
+
+  nativeBuildInputs = with pkgs; [
+    autoconf-archive
+    autoreconfHook # This handles building
+    pkg-config
+  ];
+
+  buildInputs = with pkgs; [
+    libtorrent-rasterbar
+    libvlc
+    boost
+    openssl
+  ];
+
+  strictDeps = true;
+
+  src = fetchGit {
+    url = "https://github.com/johang/vlc-bittorrent";
+    rev = "6810d479e6c1f64046d3b30efe78774b49d1c95b";
+  };
+}
+```
 
 Oh well ¯\\\_(ツ)\_/¯
