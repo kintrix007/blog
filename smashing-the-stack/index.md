@@ -22,7 +22,7 @@ investigate how bad these memory exploits are. So let's try *smashing the
 stack*, shall we.
 
 Smashing the stack stands for this exploit where we overwrite parts of the
-stack that are are still in use and hold otherwise useful data for the program.
+stack that are still in use and hold otherwise useful data for the program.
 We can achieve this by overflowing buffers.
 
 ## Hardware
@@ -63,6 +63,9 @@ void unused_function(void) {
 Our goal is to execute `unused_function` just by using the
 compiled binary. That is, we will try to make the program execute
 `unused_function` by passing in a carefully handcrafted argument.
+
+This is possible due to a vulnerability in the above code due
+to using `strcpy`.
 
 ## Steps
 
@@ -124,7 +127,8 @@ be clearer if I wrote it as `0x00010494`.
 
 This is a fun step. We will just poke around a bit.
 
-First let's start GDB.
+First let's start
+[GDB](https://en.m.wikipedia.org/wiki/GNU_Debugger).
 
 ```sh
 gdb --args ./vuln 12345678
@@ -186,7 +190,7 @@ Breakpoint 2, 0x000104e8 in main ()
 ```
 
 Now it's time to poke around in the memory. Let's just
-print a couple words around the Stack Pointer. Since the
+print a couple of words around the Stack Pointer. Since the
 buffer is allocated in this function, it should be close
 to the top of the stack (which expands in the negative
 direction).
@@ -218,7 +222,7 @@ since it stores the address to `argv`. We can see at the beginning of
    0x000104a0 <+16>:    str     r1, [r11, #-44]        ; 0xffffffd4
 ```
 
-Here, `r1` refers to the *2nd* arguments of `main` and `str` is the Store
+Here, `r1` refers to the *2nd* argument of `main` and `str` is the Store
 Register instruction. The first argument is of course `r0` (we love 0-indexing
 things). Actually, `r0` was also put on the stack. It is the very next word,
 `0x00000002`. This is the value of `argc`.
