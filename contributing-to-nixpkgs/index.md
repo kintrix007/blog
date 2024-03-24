@@ -17,7 +17,7 @@
 I have been a big fan of [Nix](https://nixos.org) for a few years now, however
 I never ended up learning it properly. It has been (still is) something that I
 will repeatedly attempt to use for a job I know it is made for, but end up not
-succeeding because the lack of understanding. Of course there have been
+succeeding because my lack of understanding. Of course there have been
 [minor](https://github.com/kintrix007/play-next/blob/master/default.nix)
 [successes](https://github.com/kintrix007/minesweeper/blob/master/default.nix)
 along the way when I managed to make it cooperate, but often times I just did
@@ -39,16 +39,18 @@ it is very nice.
 It is a package manager which claims to have solved [dependency
 hell](https://en.wikipedia.org/wiki/Dependency_hell). If two programs need
 different versions of the same library, it will simply install both versions,
-and just make it work. The "and make just it work" part is a lot more
+and just make it work. The "and just make it work" part is a lot more
 complicated than what I am making it sound like, but generally it just works.
 
 ## Prerequisites
 
-I will not go in-depth about the syntax of the Nix language. Although it is not
-*difficult* to read, pre se, it does require a basic understand of common
-functional programming concepts and does use unusual syntax in places.
+I will not go in-depth about the syntax of the Nix language. Although it is
+not *difficult* to read, pre se, it does require a basic understanding of
+common functional programming concepts and it does use some unusual syntax in
+places.
 
-Basic understanding of the Nix language is recommended.
+Basic understanding of the Nix language is recommended, although not strictly
+necessary.
 
 ## Building a Package with Nix
 
@@ -74,7 +76,7 @@ pkgs.stdenv.mkDerivation rec {
 
 It specifies to use the Nixpkgs version that is used on the current system,
 then it creates a "derivation". A derivation is a *thing* that describes how to
-build a package, effectively.
+build a package.
 
 But all that is specified is the package name (`pname`), the version
 (`version`) and the source (`src`). How does it know how to actually, y'know,
@@ -145,8 +147,9 @@ Hello, world!
 ```
 
 Seems to work just fine. It also has a `share/` directory since the packages
-are all self-contained under their store path. Instead of adding it under
-`/usr/local/share`, Nix keep it under `/nix/store/<hash>-package/share`.
+are all self-contained under their store path. These files would be
+traditionally added to `/usr/local/share` or equivalent. Nix, however, keeps it
+under the *store path* of the package in `/nix/store/<hash>-package/share`.
 Upon install this path gets added to `XDG_DATA_DIRS` so that packages work as
 intended. Similarly, the `bin/` directory gets added to `PATH` to be able to
 run the binaries like any other. Pretty clever.
@@ -167,9 +170,10 @@ note: currently hard linking saves -0.00 MiB
 ```
 
 Unfortunately I do not know of a simpler way of deleting the build output of a
-single package. Alternatively, `rm hello && nix-collec-garbage` would have also
-worked, but it would removed all other packages. <sub>*that are not GC roots
-themselves or dependencies of GC roots*</sub>
+single package. Alternatively, `rm hello && nix-collect-garbage` would have
+also worked, but that would also remove all other packages that are not
+explicitly installed. <sub>*-- or are not GC roots themselves or dependencies of
+GC roots*</sub>
 
 ## Building the VLC BitTorrent Plugin
 
@@ -226,14 +230,14 @@ Nix. For this package it clearly could not just figure out how to build it.
 The error message explains what happened and with a bit of understanding about
 how Nix builds packages we can decipher what went wrong. Nothing actually got
 written to the build directory (`out`). In other words, it did not build
-anything. Very sensible that that results in an error.
+anything. Very sensible that this results in an error.
 
 ### Second Attempt -- Specify Build Steps
 
-It seems that here we will actually need to specify the build steps. Shouldn't
-be too bad. First, let's check
-[upstream](https://github.com/johang/vlc-bittorrent?tab=readme-ov-file#building-from-git-on-a-recent-debianubuntu)
-for the "official" build steps:
+It seems that here we will actually *need* to specify the build steps.
+Shouldn't be too bad. First, let's check [the `vlc-bittorrent`
+GitHub](https://github.com/johang/vlc-bittorrent?tab=readme-ov-file#building-from-git-on-a-recent-debianubuntu)
+for the official build instructions:
 
 ```sh
 sudo apt-get install autoconf autoconf-archive automake libtool make \
@@ -246,7 +250,7 @@ make
 make install
 ```
 
-Let's copy over the actual build and install commands into [the
+Let's copy over the build and install commands into [the
 derivation](./vlc-bittorrent-2.nix). We already have cloning the repo figured
 out declaratively with `fetchGit`.
 
@@ -279,9 +283,10 @@ to only build a package and not yet install it, for example. Nix supports this.
 
 We also make a small change, we change `./configure --prefix=/tmp/vlc` to
 `./configure --prefix=$out`. This is because we want the build to happen in its
-own nix store path, so we specify it. `out` is a shell variable the Nix
-automatically assigns to the store path it builds the package under. Something
-like `out=/nix/store/k4rxnw719z628brqinrhlxmfibw1cz2q-vlc-bittorrent-2.15.0`.
+own nix store path, and this is the way we can specify it. `out` is a shell
+variable Nix automatically assigns to the store path it builds the package
+under. In our case, this will be something like
+`out=/nix/store/k4rxnw719z628brqinrhlxmfibw1cz2q-vlc-bittorrent-2.15.0`.
 
 ```sh
 $ nix-build vlc-bittorent.nix 
@@ -316,22 +321,24 @@ However the build tooling, such as `autoreconf`, is not present.
 
 ### Third Attempt -- Explicitly Declare the Dependencies
 
-We need to *actually* declare the dependencies. This will involve a bit of
-hand-translating package names from Debian to Nix, but it is not too bad.
+We need to manually declare the dependencies. This will involve a bit of
+hand-translating package names from Debian to Nix. Luckily, the package names
+are similar, and I can just search for packages on
+[search.nixos.org](https://search.nixos.org/).
 
-```txt
-autoconf                   ==>  autoconf
-autoconf-archive           ==>  autoconf-archive
-automake                   ==>  automake
-g++                        ==>  gcc
-libtool                    ==>  libtool
-libtorrent-rasterbar-dev   ==>  libtorrent-rasterbar
-libvlc-dev libvlccore-dev  ==>  libvlc
-make                       ==>  gnumake
-```
+|           Debian           |          Nix          |
+|----------------------------|-----------------------|
+| autoconf                   |  autoconf             |
+| autoconf-archive           |  autoconf-archive     |
+| automake                   |  automake             |
+| g++                        |  gcc                  |
+| libtool                    |  libtool              |
+| libtorrent-rasterbar-dev   |  libtorrent-rasterbar |
+| libvlc-dev libvlccore-dev  |  libvlc               |
+| make                       |  gnumake              |
 
-After listing these packages as build dependencies I have the
-[following](./vlc-bittorrent-3.nix):
+After listing these packages as build dependencies I have the [following
+code](./vlc-bittorrent-3.nix):
 
 ```nix
 { pkgs ? import <nixpkgs> { } }:
@@ -560,12 +567,6 @@ previous Nix shell and then create a new one.
 
 ```sh
 $ nix-shell vlc-bittorent.nix 
-(nix-shell) $ nix-shell -p pkg-config
-(nix-shell) $ cd `mktemp -d`
-(nix-shell) $ unpackPhase 
-unpacking source archive /nix/store/c9w5y8cl1pw4szy5s4i0k8pxxpw34fc1-source
-source root is source
-(nix-shell) $ nix-shell vlc-bittorent-3.nix 
 (nix-shell) $ cd `mktemp -d` && unpackPhase && cd source && autoreconf -i
 unpacking source archive /nix/store/c9w5y8cl1pw4szy5s4i0k8pxxpw34fc1-source
 source root is source
@@ -576,7 +577,8 @@ source root is source
 0
 ```
 
-That solved it! Great. Let's try the build as a whole.
+That solved it! Great. Let's retry with `nix-build` now (again, after
+`exit`-ing out of that Nix Shell).
 
 ```sh
 $ nix-build vlc-bittorent.nix 
@@ -664,11 +666,11 @@ Okay, maybe a couple things need to be changed before that:
 
 - Adding the metadata (such as the homepage, the license etc)
 - Making sure it conforms to the Nixpkgs style guide
-- *Actually making the expression have a signature Nixpkgs can work with*
+- *Rewriting the expression to have a signature Nixpkgs can work with*
 - Yada-yada
 
 If you are interested in how that went, then you can check out the PR linked
-above. Spoilers: There were things that needed to be changed.
+above. Spoilers: There were indeed things that needed to be changed.
 
 For example, there is `autoreconfHook`. I would have needed to add that to the
 `nativeBuildInputs`, and Nix would have figured out all the build and install
