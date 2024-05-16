@@ -62,11 +62,11 @@ JSON and YAML? What about linting my Markdown? This last one is particularly
 important to me because I spend a lot of time writing Markdown. I write my blog
 posts in Markdown too!
 
-Well of course I could always just exit Neovim, then run `markdownlint
-<filename>` like some sort of an ape-men who had to carve their markdown in the
-wall of a cave, I want to have a better experience than that. I want the linter
-messages to show up as diagnostics in my editor just like with LSPs. For
-example, I want it to highlight a line that has an accidental trailing space.
+Well of course I could always just exit Neovim, then run `markdownlint file.md`
+like some sort of an ape-men who had to carve their markdown in the wall of a
+cave, I want to have a better experience than that. I want the linter messages
+to show up as diagnostics in my editor just like with LSPs. For example, I want
+it to highlight a line that has an accidental trailing space.
 
 ## How to Configure the Linter Support
 
